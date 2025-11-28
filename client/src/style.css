@@ -1,0 +1,77 @@
+/* Design System Variables */
+:root {
+	--color-bg: #111418;
+	--color-bg-alt: #1c2128;
+	--color-surface: #222831;
+	--color-surface-hover: #2f3640;
+	--color-border: #30363d;
+	--color-text: #eef2f6;
+	--color-text-dim: #9aa4b1;
+	--color-primary: #0d6efd;
+	--color-primary-hover: #0b5ed7;
+	--color-danger: #ff6b6b;
+	--color-accent: #7b5dfc;
+	--radius-sm: 4px;
+	--radius: 8px;
+	--shadow: 0 4px 12px -2px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4);
+	--transition: 150ms ease;
+	--font-stack: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;
+	--gradient: radial-gradient(circle at 30% 30%, #203040, #111418 70%);
+}
+
+body { font-family: var(--font-stack); background: var(--gradient); color: var(--color-text); margin:0; min-height:100vh; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Scrollbar subtle */
+body::-webkit-scrollbar { width: 10px; }
+body::-webkit-scrollbar-track { background: var(--color-bg-alt); }
+body::-webkit-scrollbar-thumb { background: var(--color-surface); border-radius: var(--radius-sm); }
+
+input, button { font: inherit; }
+
+.container { width:100%; max-width:1080px; margin:0 auto; padding:1.25rem 1rem 3rem; }
+
+.card { background: var(--color-surface); padding:1rem 1.1rem; border-radius: var(--radius); border:1px solid var(--color-border); box-shadow: var(--shadow); position:relative; overflow:hidden; }
+.card:hover { background: var(--color-surface-hover); }
+.card h2, .card h3 { margin:0 0 .75rem; font-weight:600; letter-spacing:.5px; }
+
+.grid { display:grid; gap:1rem; }
+
+button { cursor:pointer; background:linear-gradient(135deg,var(--color-primary),var(--color-accent)); color:#fff; border:none; padding:0.65rem 1rem; border-radius: var(--radius-sm); font-weight:600; letter-spacing:.3px; box-shadow:0 2px 4px rgba(0,0,0,.4); transition: var(--transition); }
+button:hover { filter:brightness(1.08); }
+button:active { transform:translateY(1px); }
+button[disabled] { opacity:.5; cursor:not-allowed; }
+
+.btn-secondary { background: var(--color-bg-alt); color: var(--color-text); border:1px solid var(--color-border); }
+.btn-secondary:hover { background: var(--color-surface-hover); }
+
+.error { color: var(--color-danger); margin-top:0.5rem; font-size:.85rem; }
+label { display:block; margin-top:0.75rem; font-size:.85rem; font-weight:500; color: var(--color-text-dim); }
+input { width:100%; padding:0.6rem 0.65rem; margin-top:0.35rem; border-radius: var(--radius-sm); border:1px solid var(--color-border); background: var(--color-bg-alt); color: var(--color-text); transition: var(--transition); }
+input:focus { outline:2px solid var(--color-primary); outline-offset:2px; }
+
+.badge { display:inline-block; background: var(--color-primary); color:#fff; padding:.25rem .55rem; border-radius:999px; font-size:.7rem; letter-spacing:.5px; font-weight:600; }
+.stats-list { list-style:none; margin:0; padding:0; }
+.stats-list li { display:flex; justify-content:space-between; align-items:center; padding:.4rem .25rem; font-size:.85rem; border-bottom:1px dashed var(--color-border); }
+.stats-list li:last-child { border-bottom:none; }
+
+.distance-bar { height:8px; background: var(--color-bg-alt); border-radius:999px; overflow:hidden; margin:.5rem 0 0; }
+.distance-bar span { display:block; height:100%; background: linear-gradient(90deg,var(--color-primary),var(--color-accent)); width:0%; transition: width 400ms ease; }
+
+.nav { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem 1rem 1rem; }
+.nav-title { font-size:1.25rem; font-weight:700; letter-spacing:.7px; }
+.nav-actions { display:flex; gap:.5rem; }
+
+.footer { margin-top:2rem; font-size:.7rem; opacity:.6; text-align:center; }
+
+/* Theme Toggle */
+.theme-toggle { position:fixed; bottom:1rem; right:1rem; }
+
+[data-theme='light'] { --color-bg:#f5f7fa; --color-bg-alt:#e9eef3; --color-surface:#ffffff; --color-surface-hover:#f5f7fa; --color-border:#d0d7de; --color-text:#1b1f23; --color-text-dim:#4b535c; --gradient: radial-gradient(circle at 30% 30%, #ffffff, #e1e7ec 70%); }
+[data-theme='light'] .error { color:#c62828; }
+
+/* Simple fade-in */
+.fade-in { animation: fade .4s ease; }
+@keyframes fade { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
