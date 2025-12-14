@@ -2,6 +2,8 @@
 
 Aplicación web (backend Python/FastAPI + SQLite y frontend React + Vite PWA) para rastrear recorridos y consumo de gasolina.
 
+**¿Buscas la versión de consola?** Ver [README_CONSOLE.md](README_CONSOLE.md) para la versión simplificada que se ejecuta solo por consola.
+
 ## Características
 
 - Registro e inicio de sesión con JWT.
@@ -13,9 +15,10 @@ Aplicación web (backend Python/FastAPI + SQLite y frontend React + Vite PWA) pa
 ## Estructura
 
 ```
-server_python/  -> API Python FastAPI + SQLite
-client/         -> Frontend React + Vite
-server/         -> (Deprecado) API Express + SQLite
+server_python/        -> API Python FastAPI + SQLite
+client/               -> Frontend React + Vite
+server/               -> (Deprecado) API Express + SQLite
+gas_tracker_console.py -> Versión consola (standalone)
 ```
 
 ## Requisitos
