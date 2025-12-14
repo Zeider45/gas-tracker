@@ -1,0 +1,13 @@
+# Console application database
+data/
+
+# CSV exports
+*.csv
+trips_export.csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
