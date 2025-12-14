@@ -176,6 +176,16 @@ export function getAllTrips(userId: number): Promise<TripRow[]> {
   });
 }
 
+function escapeCSV(value: any): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  // If the value contains comma, quote, or newline, wrap it in quotes and escape quotes
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
 export function convertTripsToCSV(trips: TripRow[]): string {
   const headers = [
     "id",
@@ -191,13 +201,13 @@ export function convertTripsToCSV(trips: TripRow[]): string {
   
   for (const trip of trips) {
     const row = [
-      trip.id,
-      trip.user_id,
-      trip.started_at,
-      trip.ended_at || "",
-      trip.initial_fuel_liters ?? "",
-      trip.final_fuel_liters ?? "",
-      trip.total_distance_km
+      escapeCSV(trip.id),
+      escapeCSV(trip.user_id),
+      escapeCSV(trip.started_at),
+      escapeCSV(trip.ended_at),
+      escapeCSV(trip.initial_fuel_liters),
+      escapeCSV(trip.final_fuel_liters),
+      escapeCSV(trip.total_distance_km)
     ];
     csvRows.push(row.join(","));
   }

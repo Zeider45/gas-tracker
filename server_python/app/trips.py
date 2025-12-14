@@ -145,7 +145,14 @@ async def get_all_trips(db: aiosqlite.Connection, user_id: int) -> List[Trip]:
 
 def convert_trips_to_csv(trips: List[Trip]) -> str:
     """Convert a list of trips to CSV format."""
-    headers = [
+    import csv
+    import io
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write headers
+    writer.writerow([
         "id",
         "user_id",
         "started_at",
@@ -153,20 +160,18 @@ def convert_trips_to_csv(trips: List[Trip]) -> str:
         "initial_fuel_liters",
         "final_fuel_liters",
         "total_distance_km"
-    ]
+    ])
     
-    csv_rows = [",".join(headers)]
-    
+    # Write data rows
     for trip in trips:
-        row = [
-            str(trip.id),
-            str(trip.user_id),
+        writer.writerow([
+            trip.id,
+            trip.user_id,
             trip.started_at,
             trip.ended_at or "",
-            str(trip.initial_fuel_liters) if trip.initial_fuel_liters is not None else "",
-            str(trip.final_fuel_liters) if trip.final_fuel_liters is not None else "",
-            str(trip.total_distance_km)
-        ]
-        csv_rows.append(",".join(row))
+            trip.initial_fuel_liters if trip.initial_fuel_liters is not None else "",
+            trip.final_fuel_liters if trip.final_fuel_liters is not None else "",
+            trip.total_distance_km
+        ])
     
-    return "\n".join(csv_rows)
+    return output.getvalue()
