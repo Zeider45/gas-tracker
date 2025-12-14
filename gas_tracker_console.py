@@ -13,8 +13,10 @@ from pathlib import Path
 import math
 
 
-# Database path
+# Configuration constants
 DB_PATH = "./data/gastracker_console.db"
+MAX_TRIPS_FOR_STATS = 20  # Number of recent trips to use for statistics
+FALLBACK_KM_PER_DAY = 500  # Fallback value when trip duration is too short
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -120,9 +122,10 @@ def get_or_create_default_user():
     if row:
         user_id = row[0]
     else:
+        # For console version, use a simple placeholder hash (not used for authentication)
         cursor.execute(
             "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-            ("console@user.local", "console")
+            ("console@user.local", "not_used")
         )
         conn.commit()
         user_id = cursor.lastrowid
@@ -268,7 +271,7 @@ def compute_consumption_stats(user_id: int):
     
     current_fuel_liters = get_current_fuel(user_id)
     
-    # Pull last 20 finished trips with fuel data
+    # Pull last N finished trips with fuel data
     cursor.execute(
         """SELECT id, initial_fuel_liters, final_fuel_liters, total_distance_km, started_at, ended_at
            FROM trips
@@ -276,8 +279,8 @@ def compute_consumption_stats(user_id: int):
              AND initial_fuel_liters IS NOT NULL 
              AND final_fuel_liters IS NOT NULL 
              AND total_distance_km > 0
-           ORDER BY ended_at DESC LIMIT 20""",
-        (user_id,)
+           ORDER BY ended_at DESC LIMIT ?""",
+        (user_id, MAX_TRIPS_FOR_STATS)
     )
     trips = cursor.fetchall()
     conn.close()
@@ -299,10 +302,21 @@ def compute_consumption_stats(user_id: int):
         total_fuel_consumed += consumed
         
         # Calculate trip duration
-        start = datetime.fromisoformat(trip[4].replace('Z', '+00:00'))
-        end = datetime.fromisoformat(trip[5].replace('Z', '+00:00'))
+        # Handle datetime parsing - remove 'Z' suffix if present
+        start_str = trip[4].replace('Z', '') if trip[4] else trip[4]
+        end_str = trip[5].replace('Z', '') if trip[5] else trip[5]
+        
+        try:
+            # Try parsing with timezone first (Python 3.11+)
+            start = datetime.fromisoformat(start_str)
+            end = datetime.fromisoformat(end_str)
+        except ValueError:
+            # Fallback to strptime for older Python versions
+            start = datetime.strptime(start_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+            end = datetime.strptime(end_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+        
         dur_days = (end - start).total_seconds() / (60 * 60 * 24)
-        total_days += max(dur_days, dist / 500)  # fallback minimal duration
+        total_days += max(dur_days, dist / FALLBACK_KM_PER_DAY)
     
     samples = len(trips)
     liters_per_km = safe_divide(total_fuel_consumed, total_distance)
