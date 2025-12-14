@@ -162,3 +162,55 @@ export function listTripPoints(
     );
   });
 }
+
+export function getAllTrips(userId: number): Promise<TripRow[]> {
+  return new Promise((resolve, reject) => {
+    db.all(
+      "SELECT * FROM trips WHERE user_id = ? ORDER BY started_at DESC",
+      [userId],
+      (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows as TripRow[]);
+      }
+    );
+  });
+}
+
+function escapeCSV(value: any): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  // If the value contains comma, quote, or newline, wrap it in quotes and escape quotes
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+export function convertTripsToCSV(trips: TripRow[]): string {
+  const headers = [
+    "id",
+    "user_id",
+    "started_at",
+    "ended_at",
+    "initial_fuel_liters",
+    "final_fuel_liters",
+    "total_distance_km"
+  ];
+  
+  const csvRows = [headers.join(",")];
+  
+  for (const trip of trips) {
+    const row = [
+      escapeCSV(trip.id),
+      escapeCSV(trip.user_id),
+      escapeCSV(trip.started_at),
+      escapeCSV(trip.ended_at),
+      escapeCSV(trip.initial_fuel_liters),
+      escapeCSV(trip.final_fuel_liters),
+      escapeCSV(trip.total_distance_km)
+    ];
+    csvRows.push(row.join(","));
+  }
+  
+  return csvRows.join("\n");
+}

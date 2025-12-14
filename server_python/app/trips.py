@@ -131,3 +131,47 @@ async def list_trip_points(db: aiosqlite.Connection, trip_id: int, limit: int = 
     ) as cursor:
         rows = await cursor.fetchall()
         return [row_to_trip_point(row) for row in rows]
+
+
+async def get_all_trips(db: aiosqlite.Connection, user_id: int) -> List[Trip]:
+    """Get all trips for a user."""
+    async with db.execute(
+        "SELECT * FROM trips WHERE user_id = ? ORDER BY started_at DESC",
+        (user_id,)
+    ) as cursor:
+        rows = await cursor.fetchall()
+        return [row_to_trip(row) for row in rows]
+
+
+def convert_trips_to_csv(trips: List[Trip]) -> str:
+    """Convert a list of trips to CSV format."""
+    import csv
+    import io
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write headers
+    writer.writerow([
+        "id",
+        "user_id",
+        "started_at",
+        "ended_at",
+        "initial_fuel_liters",
+        "final_fuel_liters",
+        "total_distance_km"
+    ])
+    
+    # Write data rows
+    for trip in trips:
+        writer.writerow([
+            trip.id,
+            trip.user_id,
+            trip.started_at,
+            trip.ended_at or "",
+            trip.initial_fuel_liters if trip.initial_fuel_liters is not None else "",
+            trip.final_fuel_liters if trip.final_fuel_liters is not None else "",
+            trip.total_distance_km
+        ])
+    
+    return output.getvalue()
