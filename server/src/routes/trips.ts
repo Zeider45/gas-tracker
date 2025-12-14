@@ -6,6 +6,8 @@ import {
   addPoint,
   stopTrip,
   listTripPoints,
+  getAllTrips,
+  convertTripsToCSV,
 } from "../trips";
 import { z } from "zod";
 
@@ -77,6 +79,18 @@ router.post("/stop", async (req, res) => {
     if (!trip) return res.status(404).json({ error: "no_active_trip" });
     const updated = await stopTrip(trip.id, parsed.data.finalFuelLiters);
     return res.json({ trip: updated });
+  } catch (e) {
+    return res.status(500).json({ error: "db_error" });
+  }
+});
+
+router.get("/export/csv", async (req, res) => {
+  try {
+    const trips = await getAllTrips(req.user!.id);
+    const csv = convertTripsToCSV(trips);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=trips.csv");
+    return res.send(csv);
   } catch (e) {
     return res.status(500).json({ error: "db_error" });
   }

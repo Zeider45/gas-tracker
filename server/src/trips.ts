@@ -162,3 +162,45 @@ export function listTripPoints(
     );
   });
 }
+
+export function getAllTrips(userId: number): Promise<TripRow[]> {
+  return new Promise((resolve, reject) => {
+    db.all(
+      "SELECT * FROM trips WHERE user_id = ? ORDER BY started_at DESC",
+      [userId],
+      (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows as TripRow[]);
+      }
+    );
+  });
+}
+
+export function convertTripsToCSV(trips: TripRow[]): string {
+  const headers = [
+    "id",
+    "user_id",
+    "started_at",
+    "ended_at",
+    "initial_fuel_liters",
+    "final_fuel_liters",
+    "total_distance_km"
+  ];
+  
+  const csvRows = [headers.join(",")];
+  
+  for (const trip of trips) {
+    const row = [
+      trip.id,
+      trip.user_id,
+      trip.started_at,
+      trip.ended_at || "",
+      trip.initial_fuel_liters ?? "",
+      trip.final_fuel_liters ?? "",
+      trip.total_distance_km
+    ];
+    csvRows.push(row.join(","));
+  }
+  
+  return csvRows.join("\n");
+}

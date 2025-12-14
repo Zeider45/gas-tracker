@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 import aiosqlite
 
 from ..database import get_db
@@ -7,7 +8,7 @@ from ..models import (
     AuthUser, TripCreate, TripStop, TripPointCreate,
     TripResponse, ActiveTripResponse, PointAddedResponse
 )
-from ..trips import get_active_trip, start_trip, add_point, stop_trip, list_trip_points
+from ..trips import get_active_trip, start_trip, add_point, stop_trip, list_trip_points, get_all_trips, convert_trips_to_csv
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 
@@ -90,3 +91,19 @@ async def stop_active_trip(
     
     updated = await stop_trip(db, trip.id, trip_data.finalFuelLiters)
     return TripResponse(trip=updated)
+
+
+@router.get("/export/csv")
+async def export_trips_csv(
+    current_user: AuthUser = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    """Export all trips for the current user as CSV."""
+    trips = await get_all_trips(db, current_user.id)
+    csv_content = convert_trips_to_csv(trips)
+    
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=trips.csv"}
+    )
