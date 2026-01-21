@@ -6,8 +6,9 @@ Versión de consola del Gas Tracker que permite rastrear viajes y consumo de com
 
 - **Gestión de viajes**: Inicia, finaliza y registra kilómetros manualmente
 - **Registro de combustible**: Guarda snapshots de combustible
-- **Estadísticas**: Calcula consumo promedio, rango proyectado, días restantes
+- **Estadísticas**: Calcula consumo (km/l) y autonomía proyectada (range)
 - **Exportación CSV**: Exporta todos los viajes a formato CSV
+- **Gráficos**: Visualiza la evolución del consumo y autonomía proyectada (requiere matplotlib)
 - **Base de datos SQLite**: Almacenamiento local persistente
 - **Interfaz simple**: Menú interactivo en consola
 
@@ -15,10 +16,17 @@ Versión de consola del Gas Tracker que permite rastrear viajes y consumo de com
 
 - Python 3.7+
 - Librerías estándar de Python (incluidas)
+- matplotlib (opcional, solo para la funcionalidad de gráficos)
 
 ## Instalación
 
 No requiere instalación de dependencias adicionales. Solo necesitas Python instalado.
+
+Para habilitar la funcionalidad de gráficos, instala matplotlib:
+
+```bash
+pip install matplotlib
+```
 
 ## Uso
 
@@ -55,10 +63,8 @@ chmod +x gas_tracker_console.py
    - Útil para calcular estadísticas precisas
 
 5. Ver estadísticas
-   - Muestra consumo promedio (L/100km)
-   - Km promedio por día
-   - Rango proyectado con combustible actual
-   - Días restantes estimados
+   - Muestra consumo (km/l)
+   - Autonomía proyectada (range) con combustible actual
 
 6. Ver historial de viajes
    - Lista todos los viajes registrados
@@ -67,6 +73,11 @@ chmod +x gas_tracker_console.py
 7. Exportar viajes a CSV
    - Exporta todos los viajes a un archivo CSV
    - Por defecto: trips_export.csv
+
+8. Ver gráficos de Range y Consumo
+   - Muestra gráficos históricos de consumo (km/l)
+   - Muestra gráficos de autonomía proyectada
+   - Requiere matplotlib instalado
 
 0. Salir
    - Cierra la aplicación
@@ -136,13 +147,25 @@ id,user_id,started_at,ended_at,initial_fuel_liters,final_fuel_liters,total_dista
 
 ## Cálculos
 
-La aplicación utiliza las mismas fórmulas que la versión web:
+La aplicación calcula las siguientes estadísticas:
 
-- **Consumo promedio**: (Litros consumidos / Distancia) × 100
-- **Rango proyectado**: Combustible actual / (Litros por km)
-- **Días restantes**: Combustible actual / (Litros por día promedio)
+- **Consumo (km/l)**: Distancia total / Litros consumidos
+- **Autonomía Proyectada (Range)**: Combustible actual × (km/l promedio)
 
 Los cálculos se basan en los últimos 20 viajes con datos completos.
+
+## Gráficos
+
+La opción de gráficos (opción 8) muestra dos gráficos:
+
+1. **Consumo (km/l)**: Evolución del consumo a lo largo del tiempo
+2. **Autonomía Proyectada (Range)**: Evolución del rango estimado basado en el combustible disponible
+
+Para usar esta funcionalidad, instala matplotlib:
+
+```bash
+pip install matplotlib
+```
 
 ## Troubleshooting
 
