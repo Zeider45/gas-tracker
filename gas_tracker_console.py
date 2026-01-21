@@ -333,8 +333,8 @@ def compute_consumption_stats(user_id: int):
     avg_km_per_day = safe_divide(total_distance, total_days)
     
     projected_range_km = None
-    if liters_per_km is not None and current_fuel_liters is not None:
-        projected_range_km = current_fuel_liters / liters_per_km
+    if avg_km_per_liter is not None and current_fuel_liters is not None:
+        projected_range_km = current_fuel_liters * avg_km_per_liter
     
     avg_fuel_per_day = safe_divide(total_fuel_consumed, total_days)
     projected_days_left = None
@@ -462,9 +462,9 @@ def display_trips(user_id: int):
             if trip['initial_fuel_liters'] is not None:
                 consumed = trip['initial_fuel_liters'] - trip['final_fuel_liters']
                 print(f"  Combustible consumido: {consumed:.2f} L")
-                if trip['total_distance_km'] > 0:
-                    consumption = (consumed / trip['total_distance_km']) * 100
-                    print(f"  Consumo: {consumption:.2f} L/100km")
+                if trip['total_distance_km'] > 0 and consumed > 0:
+                    consumption = trip['total_distance_km'] / consumed
+                    print(f"  Consumo: {consumption:.2f} km/l")
     
     print("="*50 + "\n")
 
@@ -498,8 +498,10 @@ def get_trip_stats_history(user_id: int):
         if dist <= 0:
             continue
         
-        # Calculate km/l for this trip
-        km_per_liter = dist / consumed
+        # Calculate km/l for this trip using safe_divide
+        km_per_liter = safe_divide(dist, consumed)
+        if km_per_liter is None:
+            continue
         
         # Parse date
         date_str = trip[1].replace('Z', '') if trip[1] else trip[1]
@@ -540,33 +542,47 @@ def display_graphs(user_id: int):
     dates = [trip['date'] for trip in trip_data]
     km_per_liter = [trip['km_per_liter'] for trip in trip_data]
     
-    # Calculate projected range for each trip (simulating current fuel at that time)
-    # For simplicity, we'll use the final fuel from each trip as the "current" fuel
+    # Calculate projected range for each historical trip based on fuel after that trip
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        """SELECT ended_at, final_fuel_liters
+        """SELECT id, ended_at, final_fuel_liters
            FROM trips
            WHERE user_id = ? AND ended_at IS NOT NULL 
              AND final_fuel_liters IS NOT NULL
            ORDER BY ended_at ASC""",
         (user_id,)
     )
-    fuel_snapshots = cursor.fetchall()
+    fuel_snapshots = {row[0]: float(row[2]) for row in cursor.fetchall()}
     conn.close()
     
-    # Calculate projected ranges
+    # Get trip IDs for alignment
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT id
+           FROM trips
+           WHERE user_id = ? AND ended_at IS NOT NULL 
+             AND initial_fuel_liters IS NOT NULL 
+             AND final_fuel_liters IS NOT NULL 
+             AND total_distance_km > 0
+           ORDER BY ended_at ASC""",
+        (user_id,)
+    )
+    trip_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    
+    # Calculate projected ranges using correct fuel levels
     projected_ranges = []
     for i, trip in enumerate(trip_data):
-        if i < len(fuel_snapshots):
-            fuel = float(fuel_snapshots[i][1])
+        if i < len(trip_ids) and trip_ids[i] in fuel_snapshots:
+            fuel = fuel_snapshots[trip_ids[i]]
             projected_range = fuel * trip['km_per_liter']
             projected_ranges.append(projected_range)
-        else:
-            # Use current fuel if available
-            if current_fuel:
-                projected_range = current_fuel * trip['km_per_liter']
-                projected_ranges.append(projected_range)
+        elif current_fuel:
+            # Use current fuel as fallback
+            projected_range = current_fuel * trip['km_per_liter']
+            projected_ranges.append(projected_range)
     
     # Create figure with 2 subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
