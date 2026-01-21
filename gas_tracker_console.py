@@ -12,6 +12,14 @@ from datetime import datetime
 from pathlib import Path
 import math
 
+# Try to import matplotlib for graphing feature
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+
 
 # Configuration constants
 DB_PATH = "./data/gastracker_console.db"
@@ -320,12 +328,13 @@ def compute_consumption_stats(user_id: int):
     
     samples = len(trips)
     liters_per_km = safe_divide(total_fuel_consumed, total_distance)
-    avg_liters_per_100km = liters_per_km * 100 if liters_per_km is not None else None
+    # Calculate km/l instead of L/100km
+    avg_km_per_liter = safe_divide(total_distance, total_fuel_consumed)
     avg_km_per_day = safe_divide(total_distance, total_days)
     
     projected_range_km = None
-    if liters_per_km is not None and current_fuel_liters is not None:
-        projected_range_km = current_fuel_liters / liters_per_km
+    if avg_km_per_liter is not None and current_fuel_liters is not None:
+        projected_range_km = current_fuel_liters * avg_km_per_liter
     
     avg_fuel_per_day = safe_divide(total_fuel_consumed, total_days)
     projected_days_left = None
@@ -334,7 +343,7 @@ def compute_consumption_stats(user_id: int):
     
     return {
         "currentFuelLiters": current_fuel_liters,
-        "avgLitersPer100Km": avg_liters_per_100km,
+        "avgKmPerLiter": avg_km_per_liter,
         "avgKmPerDay": avg_km_per_day,
         "projectedRangeKm": projected_range_km,
         "projectedDaysLeft": projected_days_left,
@@ -413,17 +422,12 @@ def display_stats(user_id: int):
         print("Combustible actual: No registrado")
     
     if stats["samples"] > 0:
-        if stats["avgLitersPer100Km"] is not None:
-            print(f"Consumo promedio: {stats['avgLitersPer100Km']:.2f} L/100km")
-        
-        if stats["avgKmPerDay"] is not None:
-            print(f"Km promedio por día: {stats['avgKmPerDay']:.2f} km/día")
+        # Only show Range and Consumption in km/l
+        if stats["avgKmPerLiter"] is not None:
+            print(f"Consumo: {stats['avgKmPerLiter']:.2f} km/l")
         
         if stats["projectedRangeKm"] is not None:
-            print(f"Rango proyectado: {stats['projectedRangeKm']:.2f} km")
-        
-        if stats["projectedDaysLeft"] is not None:
-            print(f"Días restantes: {stats['projectedDaysLeft']:.2f} días")
+            print(f"Autonomía Proyectada (Range): {stats['projectedRangeKm']:.2f} km")
         
         print(f"Basado en {stats['samples']} viaje(s)")
     else:
@@ -458,11 +462,158 @@ def display_trips(user_id: int):
             if trip['initial_fuel_liters'] is not None:
                 consumed = trip['initial_fuel_liters'] - trip['final_fuel_liters']
                 print(f"  Combustible consumido: {consumed:.2f} L")
-                if trip['total_distance_km'] > 0:
-                    consumption = (consumed / trip['total_distance_km']) * 100
-                    print(f"  Consumo: {consumption:.2f} L/100km")
+                if trip['total_distance_km'] > 0 and consumed > 0:
+                    consumption = trip['total_distance_km'] / consumed
+                    print(f"  Consumo: {consumption:.2f} km/l")
     
     print("="*50 + "\n")
+
+
+def get_trip_stats_history(user_id: int):
+    """Get historical trip data for graphing."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        """SELECT id, ended_at, initial_fuel_liters, final_fuel_liters, total_distance_km
+           FROM trips
+           WHERE user_id = ? AND ended_at IS NOT NULL 
+             AND initial_fuel_liters IS NOT NULL 
+             AND final_fuel_liters IS NOT NULL 
+             AND total_distance_km > 0
+           ORDER BY ended_at ASC""",
+        (user_id,)
+    )
+    trips = cursor.fetchall()
+    conn.close()
+    
+    # Calculate stats for each trip
+    trip_data = []
+    for trip in trips:
+        consumed = float(trip[2]) - float(trip[3])
+        if consumed <= 0:
+            continue
+        
+        dist = float(trip[4])
+        if dist <= 0:
+            continue
+        
+        # Calculate km/l for this trip using safe_divide
+        km_per_liter = safe_divide(dist, consumed)
+        if km_per_liter is None:
+            continue
+        
+        # Parse date
+        date_str = trip[1].replace('Z', '') if trip[1] else trip[1]
+        try:
+            date = datetime.fromisoformat(date_str)
+        except ValueError:
+            date = datetime.strptime(date_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+        
+        trip_data.append({
+            'date': date,
+            'km_per_liter': km_per_liter,
+            'distance': dist,
+        })
+    
+    return trip_data
+
+
+def display_graphs(user_id: int):
+    """Display graphs for Range and Consumption."""
+    if not MATPLOTLIB_AVAILABLE:
+        print("\n⚠ La funcionalidad de gráficos no está disponible.")
+        print("   Instala matplotlib para habilitar gráficos:")
+        print("   pip install matplotlib")
+        print()
+        return
+    
+    # Get historical data
+    trip_data = get_trip_stats_history(user_id)
+    
+    if not trip_data:
+        print("\n⚠ No hay suficientes datos para mostrar gráficos.\n")
+        return
+    
+    # Get current fuel for range calculation
+    current_fuel = get_current_fuel(user_id)
+    
+    # Extract data for plotting
+    dates = [trip['date'] for trip in trip_data]
+    km_per_liter = [trip['km_per_liter'] for trip in trip_data]
+    
+    # Calculate projected range for each historical trip based on fuel after that trip
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT id, ended_at, final_fuel_liters
+           FROM trips
+           WHERE user_id = ? AND ended_at IS NOT NULL 
+             AND final_fuel_liters IS NOT NULL
+           ORDER BY ended_at ASC""",
+        (user_id,)
+    )
+    fuel_snapshots = {row[0]: float(row[2]) for row in cursor.fetchall()}
+    conn.close()
+    
+    # Get trip IDs for alignment
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT id
+           FROM trips
+           WHERE user_id = ? AND ended_at IS NOT NULL 
+             AND initial_fuel_liters IS NOT NULL 
+             AND final_fuel_liters IS NOT NULL 
+             AND total_distance_km > 0
+           ORDER BY ended_at ASC""",
+        (user_id,)
+    )
+    trip_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    
+    # Calculate projected ranges using correct fuel levels
+    projected_ranges = []
+    for i, trip in enumerate(trip_data):
+        if i < len(trip_ids) and trip_ids[i] in fuel_snapshots:
+            fuel = fuel_snapshots[trip_ids[i]]
+            projected_range = fuel * trip['km_per_liter']
+            projected_ranges.append(projected_range)
+        elif current_fuel:
+            # Use current fuel as fallback
+            projected_range = current_fuel * trip['km_per_liter']
+            projected_ranges.append(projected_range)
+    
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+    fig.suptitle('Estadísticas de Combustible', fontsize=16, fontweight='bold')
+    
+    # Plot 1: Consumo (km/l)
+    ax1.plot(dates, km_per_liter, marker='o', linestyle='-', linewidth=2, markersize=6, color='#2ecc71')
+    ax1.set_xlabel('Fecha', fontsize=12)
+    ax1.set_ylabel('km/l', fontsize=12)
+    ax1.set_title('Consumo (km/l)', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3)
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax1.tick_params(axis='x', rotation=45)
+    
+    # Plot 2: Autonomía Proyectada (Range)
+    if projected_ranges:
+        ax2.plot(dates[:len(projected_ranges)], projected_ranges, marker='s', linestyle='-', linewidth=2, markersize=6, color='#3498db')
+        ax2.set_xlabel('Fecha', fontsize=12)
+        ax2.set_ylabel('km', fontsize=12)
+        ax2.set_title('Autonomía Proyectada (Range)', fontsize=14, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax2.tick_params(axis='x', rotation=45)
+    
+    plt.tight_layout()
+    
+    print("\n✓ Mostrando gráficos...")
+    print("  Cierra la ventana de gráficos para continuar.\n")
+    
+    plt.show()
+
 
 
 def read_float(prompt: str, allow_none: bool = False) -> float:
@@ -489,6 +640,7 @@ def main_menu():
     print("5. Ver estadísticas")
     print("6. Ver historial de viajes")
     print("7. Exportar viajes a CSV")
+    print("8. Ver gráficos de Range y Consumo")
     print("0. Salir")
     print("="*50)
     
@@ -585,6 +737,10 @@ def main():
             
             export_trips_to_csv(user_id, filename)
             print()
+        
+        elif choice == "8":
+            # Display graphs
+            display_graphs(user_id)
         
         elif choice == "0":
             # Exit
